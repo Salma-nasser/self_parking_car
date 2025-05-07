@@ -13,4 +13,10 @@ int digitalReadLowLevel(uint8_t pin);
 void custDelay(uint32_t ms);
 void custDelayMicroseconds(uint32_t us);
 
+// Add new function declarations
+void configureGPIOInterrupt(uint8_t pin, uint8_t intr_type);
+void installGPIOISR(uint8_t pin, void (*isr_handler)(void*), void* arg);
+void clearGPIOInterruptStatus(uint8_t pin);
+uint8_t getGPIOInterruptStatus(uint8_t pin);
+
 #endif
