@@ -1,11 +1,14 @@
 #include "low_level_functions.h"
+#include "gpio_defs.h"
+#include "soc/io_mux_reg.h"       // For IO_MUX and related
+#include "soc/gpio_reg.h"         // For GPIO register addresses
+#include "driver/gpio.h"          // For GPIO mode constants
+// #include "soc/soc.h"              // For REG_READ, REG_WRITE
 
 // These are part of the ESP32 Arduino core and are safe to use
 #include "soc/gpio_struct.h"
 #include "driver/gpio.h"
-#include "esp32/rom/ets_sys.h"  // for ets_delay_us
-#include "freertos/FreeRTOS.h"  // for vTaskDelay
-#include "freertos/task.h"      // for portTICK_PERIOD_MS
+#include <Arduino.h>
 
 void pinConfig(uint8_t pin, uint8_t mode) {
   if (mode == OUTPUT) {
@@ -47,42 +50,39 @@ int digitalReadLowLevel(uint8_t pin) {
   }
 }
 
-static inline uint32_t get_ccount() {
+static inline uint32_t getCycleCount() {
   uint32_t ccount;
-  __asm__ volatile("rsr.ccount %0"
-                   : "=a"(ccount));
+  __asm__ __volatile__("rsr %0,ccount" : "=a"(ccount));
   return ccount;
-}
-void custDelay(uint32_t ms) {
-  uint32_t start = micros();
-  while ((micros() - start) < (ms * 1000))
-    ;
 }
 
 void custDelayMicroseconds(uint32_t us) {
-  uint32_t start = get_ccount();
-  uint32_t cycles = us * 240;
-  while ((get_ccount() - start) < cycles)
-    ;
+  uint32_t start = getCycleCount();
+  uint32_t wait = us * 240;
+  while ((getCycleCount() - start) < wait);
 }
 
-void configureGPIOInterrupt(uint8_t pin, uint8_t intr_type) {
-  uint32_t reg_idx = pin / 32;
-  uint32_t bit_pos = pin % 32;
+void custDelay(uint32_t ms) {
+  while (ms--) {
+    custDelayMicroseconds(1000);
+  }
+}
 
-  // Set interrupt type
-  auto int_type_reg = reinterpret_cast<volatile uint32_t *>(GPIO_PIN_INT_TYPE_REG + (reg_idx * 4));
-  *int_type_reg |= (intr_type << (bit_pos * 2));
+/* void configureGPIOInterrupt(uint8_t pin, gpio_int_type_t intr_type) {
+  // Set pin interrupt type
+  uint32_t reg = GPIO_PIN_REG(pin);
+  uint32_t val = REG_READ(reg);
+  val &= ~(GPIO_PIN_INT_TYPE_M);  // Clear interrupt type bits
+  val |= (intr_type << GPIO_PIN_INT_TYPE_S);
+  REG_WRITE(reg, val);
 
   // Enable interrupt
-  auto int_ena_reg = reinterpret_cast<volatile uint32_t *>(GPIO_PIN_INT_ENA_REG + (reg_idx * 4));
-  *int_ena_reg |= (1U << bit_pos);
+  REG_SET_BIT(GPIO_INT_ENA_REG, (1UL << pin));
 }
 
 void installGPIOISR(uint8_t pin, void (*isr_handler)(void *), void *arg) {
-  ets_isr_mask(1 << ETS_GPIO_INTR_SOURCE);
-  ets_isr_attach(ETS_GPIO_INTR_SOURCE, isr_handler, arg);
-  ets_isr_unmask(1 << ETS_GPIO_INTR_SOURCE);
+  gpio_install_isr_service(0);  // Only needs to be called once
+  gpio_isr_handler_add((gpio_num_t)pin, isr_handler, arg);
 }
 
 void clearGPIOInterruptStatus(uint8_t pin) {
@@ -91,4 +91,4 @@ void clearGPIOInterruptStatus(uint8_t pin) {
 
 uint32_t getGPIOInterruptStatus(uint8_t pin) {
   return (REG_READ(GPIO_STATUS_REG) & (1UL << pin));
-}
+} */
