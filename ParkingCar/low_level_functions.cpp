@@ -80,3 +80,31 @@ void custDelayMicroseconds(uint32_t us)
 {
   ets_delay_us(us);
 }
+
+void configureGPIOInterrupt(uint8_t pin, uint8_t intr_type) {
+    uint32_t reg_idx = pin / 32;
+    uint32_t bit_pos = pin % 32;
+
+    // Set interrupt type
+    auto int_type_reg = reinterpret_cast<volatile uint32_t*>(GPIO_PIN_INT_TYPE_REG + (reg_idx * 4));
+    *int_type_reg |= (intr_type << (bit_pos * 2));
+
+    // Enable interrupt
+    auto int_ena_reg = reinterpret_cast<volatile uint32_t*>(GPIO_PIN_INT_ENA_REG + (reg_idx * 4));
+    *int_ena_reg |= (1U << bit_pos);
+}
+
+void installGPIOISR(uint8_t pin, void (*isr_handler)(void*), void* arg) {
+    ets_isr_mask(1 << ETS_GPIO_INTR_SOURCE);
+    ets_isr_attach(ETS_GPIO_INTR_SOURCE, isr_handler, arg);
+    ets_isr_unmask(1 << ETS_GPIO_INTR_SOURCE);
+}
+
+void clearGPIOInterruptStatus(uint8_t pin) {
+    REG_WRITE(GPIO_STATUS_W1TC_REG, (1UL << pin));
+}
+
+uint32_t getGPIOInterruptStatus(uint8_t pin) {
+    return (REG_READ(GPIO_STATUS_REG) & (1UL << pin));
+}
+
