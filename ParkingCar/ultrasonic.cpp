@@ -1,6 +1,8 @@
 #include "ultrasonic.h"
 #include "low_level_functions.h"
 
+#include <Arduino.h>
+
 #define TAG "ULTRASONIC"
 #define MAX_TIMEOUT_US 30000  // 30ms timeout
 
@@ -22,7 +24,7 @@ float read_distance(uint8_t trig, uint8_t echo) {
   uint64_t start = micros();
   while (!digitalReadLowLevel(echo)) {
     if ((micros() - start) > MAX_TIMEOUT_US) {
-      Serial.printIn("Timeout waiting for echo HIGH");
+      Serial.print("Timeout waiting for echo HIGH");
       return -1;
     }
   }
@@ -30,7 +32,7 @@ float read_distance(uint8_t trig, uint8_t echo) {
   uint64_t echo_start = micros();
   while (digitalReadLowLevel(echo)) {
     if ((micros() - echo_start) > MAX_TIMEOUT_US) {
-      Serial.printIn("Timeout waiting for echo LOW");
+      Serial.print("Timeout waiting for echo LOW");
       return -1;
     }
   }
