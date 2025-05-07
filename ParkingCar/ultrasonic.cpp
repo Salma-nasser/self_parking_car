@@ -1,7 +1,4 @@
 #include "ultrasonic.h"
-
-#include "esp_log.h"
-#include "esp_timer.h"
 #include "low_level_functions.h"
 
 #define TAG "ULTRASONIC"
@@ -22,23 +19,23 @@ float read_distance(uint8_t trig, uint8_t echo) {
   custDelayMicroseconds(10);
   digitalWriteLowLevel(trig, 0);
 
-  uint64_t start = esp_timer_get_time();
+  uint64_t start = micros();
   while (!digitalReadLowLevel(echo)) {
-    if ((esp_timer_get_time() - start) > MAX_TIMEOUT_US) {
-      ESP_LOGW(TAG, "Timeout waiting for echo HIGH");
+    if ((micros() - start) > MAX_TIMEOUT_US) {
+      Serial.printIn("Timeout waiting for echo HIGH");
       return -1;
     }
   }
 
-  uint64_t echo_start = esp_timer_get_time();
+  uint64_t echo_start = micros();
   while (digitalReadLowLevel(echo)) {
-    if ((esp_timer_get_time() - echo_start) > MAX_TIMEOUT_US) {
-      ESP_LOGW(TAG, "Timeout waiting for echo LOW");
+    if ((micros() - echo_start) > MAX_TIMEOUT_US) {
+      Serial.printIn("Timeout waiting for echo LOW");
       return -1;
     }
   }
 
-  uint64_t echo_end = esp_timer_get_time();
+  uint64_t echo_end = micros();
   float duration = echo_end - echo_start;
   float distance_cm = (duration * 0.0343f) / 2.0f;
   return distance_cm;

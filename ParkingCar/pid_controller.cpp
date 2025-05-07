@@ -1,7 +1,5 @@
 #include "pid_controller.h"
 
-#include "esp_timer.h"
-
 void pid_init(PIDController *pid, float kp, float ki, float kd, float output_min, float output_max,
               float integral_limit) {
   pid->kp = kp;
@@ -18,52 +16,52 @@ void pid_init(PIDController *pid, float kp, float ki, float kd, float output_min
 }
 
 float pid_compute(PIDController *pid, float input, uint32_t current_time) {
-  // Calculate time delta in seconds
   float dt;
+
   if (pid->last_time == 0) {
-    dt = 0.01f;  // First run, assume 10ms
+    dt = 0.01f;  // Assume 10ms for first run
   } else {
-    dt = (current_time - pid->last_time) / 1000.0f;  // Convert ms to seconds
+    dt = (current_time - pid->last_time) / 1000.0f;  // ms to seconds
   }
+
   pid->last_time = current_time;
 
-  // Avoid division by zero
   if (dt <= 0.0f) {
     dt = 0.01f;
   }
 
-  // Calculate error
   float error = pid->setpoint - input;
 
-  // Proportional term
+  // Proportional
   float p_term = pid->kp * error;
 
-  // Integral term with anti-windup
+  // Integral with anti-windup
   pid->integral += error * dt;
-  if (pid->integral > pid->integral_limit) {
+  if (pid->integral > pid->integral_limit)
     pid->integral = pid->integral_limit;
-  } else if (pid->integral < -pid->integral_limit) {
+  else if (pid->integral < -pid->integral_limit)
     pid->integral = -pid->integral_limit;
-  }
+
   float i_term = pid->ki * pid->integral;
 
-  // Derivative term (on measurement, not error)
+  // Derivative
   float derivative = (error - pid->prev_error) / dt;
   float d_term = pid->kd * derivative;
   pid->prev_error = error;
 
-  // Calculate output with limits
+  // Output with clamping
   pid->output = p_term + i_term + d_term;
-  if (pid->output > pid->output_max) {
+  if (pid->output > pid->output_max)
     pid->output = pid->output_max;
-  } else if (pid->output < pid->output_min) {
+  else if (pid->output < pid->output_min)
     pid->output = pid->output_min;
-  }
 
   return pid->output;
 }
 
-void pid_set_setpoint(PIDController *pid, float setpoint) { pid->setpoint = setpoint; }
+void pid_set_setpoint(PIDController *pid, float setpoint) {
+  pid->setpoint = setpoint;
+}
 
 void pid_reset_integral(PIDController *pid) {
   pid->integral = 0.0f;
