@@ -1,104 +1,60 @@
-#include "slot_detection.h"
-
-#include "gpio_defs.h"
-#include "low_level_functions.h"
-#include "motion_control.h"
-#include "pin_defs.h"
+#include <Arduino.h>
 #include "servo_control.h"
 #include "ultrasonic.h"
+#include "slot_detection.h"
 
-#define TAG "SLOT_DETECTION"
+// Pin definitions
+#define LEFT_TRIG_PIN    32
+#define LEFT_ECHO_PIN    33
+#define RIGHT_TRIG_PIN   12
+#define RIGHT_ECHO_PIN   13
+#define FRONT_TRIG_PIN   5
+#define FRONT_ECHO_PIN   18
 
-static volatile uint64_t slot_start_time = 0;
-static volatile bool slot_detection_active = false;
-static volatile float last_left_distance = 0;
-static volatile float last_right_distance = 0;
+// Thresholds
+#define SLOT_DEPTH_THRESHOLD_CM 30
+#define SLOT_WIDTH_THRESHOLD_CM 35
 
-void init_slot_detection() {
-  // Initialize variables
-  slot_detection_active = false;
-  slot_start_time = 0;
-}
 
-static bool check_side_distances() {
-  // Read distances from side sensors
-  last_left_distance = read_distance(TRIG_LEFT, ECHO_LEFT);
-  last_right_distance = read_distance(TRIG_RIGHT, ECHO_RIGHT);
 
-  // Check if we have enough space on either side
-  return (last_left_distance > (CAR_LENGTH_CM + MIN_SLOT_MARGIN) ||
-          last_right_distance > (CAR_LENGTH_CM + MIN_SLOT_MARGIN));
-}
+// // Utility: read distance from HC-SR04 (in cm)
+// long read_distance_cm(uint8_t trig, uint8_t echo) {
+//   digitalWrite(trig, LOW);
+//   delayMicroseconds(2);
+//   digitalWrite(trig, HIGH);
+//   delayMicroseconds(10);
+//   digitalWrite(trig, LOW);
+//   long duration = pulseIn(echo, HIGH, 25000);  // Timeout 25 ms
+//   return duration * 0.034 / 2;
+// }
 
-bool detect_parking_slot(ParkingSlot* slot) {
-  static uint64_t current_time;
+// Main slot detection logic
+SlotDirection detect_parking_slot() {
+  long left_dist = read_distance(LEFT_TRIG_PIN, LEFT_ECHO_PIN);
+  long right_dist = read_distance(RIGHT_TRIG_PIN, RIGHT_ECHO_PIN);
 
-  if (!slot_detection_active) {
-    if (check_side_distances()) {
-      slot_detection_active = true;
-      slot_start_time = micros();  // Arduino-compatible timer
-      slot->start_position = 0;    // Could be encoder reading if available
-    }
-    return false;
+  bool candidate_left = left_dist > SLOT_DEPTH_THRESHOLD_CM;
+  bool candidate_right = right_dist > SLOT_DEPTH_THRESHOLD_CM;
+
+  if (!candidate_left && !candidate_right)
+    return NO_SLOT;
+
+  // Initialize and rotate servo toward the gap direction
+  servo_init();
+
+  if (candidate_left) {
+    servo_set_angle(SERVO_LEFT);   // Rotate to left
+    delay(500);                    // Allow servo to settle
+    long width = read_distance(FRONT_TRIG_PIN, FRONT_ECHO_PIN);
+    return (width > SLOT_WIDTH_THRESHOLD_CM) ? SLOT_LEFT : NO_SLOT;
   }
 
-  current_time = micros();
-
-  if (!check_side_distances()) {
-    // Calculate width based on time difference and speed
-    uint64_t time_diff = current_time - slot_start_time;
-    float width = (time_diff / 1000000.0f) * CAR_SPEED_CMS;
-
-    // Stop car for length measurement
-    motion_control_set_mode(MOTION_STOP, 0);
-    custDelayMicroseconds(100000);  // Wait for car to stop
-
-    float length = 0.0f;
-    for (int i = 0; i < 3; i++) {
-      servo_set_angle(SERVO_RIGHT);
-      delay(500);  // Wait for servo to rotate
-
-      float current_length = read_distance(TRIG_FRONT, ECHO_FRONT);
-      if (current_length > length) {
-        length = current_length;  // Take largest valid reading
-      }
-
-      custDelayMicroseconds(50000);  // Short delay
-    }
-
-    // Reset servo to forward
-    servo_set_angle(SERVO_FORWARD);
+  if (candidate_right) {
+    servo_set_angle(SERVO_RIGHT);  // Rotate to right
     delay(500);
-
-    if (length > 0) {
-      slot->width = width;
-      slot->length = length;
-      slot->is_valid = validate_parking_dimensions(slot);
-    } else {
-      slot->is_valid = false;
-      Serial.println("[SLOT_DETECTION] Invalid length measurement");
-    }
-
-    slot_detection_active = false;
-    return true;
+    long width = read_distance(FRONT_TRIG_PIN, FRONT_ECHO_PIN);
+    return (width > SLOT_WIDTH_THRESHOLD_CM) ? SLOT_RIGHT : NO_SLOT;
   }
 
-  return false;
-}
-
-bool validate_parking_dimensions(ParkingSlot* slot) {
-  if (slot->length >= (CAR_LENGTH_CM + MIN_SLOT_MARGIN) &&
-      slot->width >= (CAR_WIDTH_CM + MIN_SLOT_MARGIN)) {
-    Serial.print("[SLOT_DETECTION] Valid parking slot found: Length=");
-    Serial.print(slot->length, 2);
-    Serial.print(", Width=");
-    Serial.println(slot->width, 2);
-    return true;
-  }
-
-  Serial.print("[SLOT_DETECTION] Invalid slot dimensions: Length=");
-  Serial.print(slot->length, 2);
-  Serial.print(", Width=");
-  Serial.println(slot->width, 2);
-  return false;
+  return NO_SLOT;
 }
