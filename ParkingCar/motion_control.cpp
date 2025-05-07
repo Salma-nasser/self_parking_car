@@ -1,6 +1,7 @@
-// #include "motion_control.h"
-// #include "motor_control.h"
-#include "Arduino.h"  
+#include "motion_control.h"
+#include "motor_control.h"
+#include <Arduino.h>
+#include "pid_controller.h"
 
 // PID controllers for left and right wheels sides
 static PIDController pid_left;
