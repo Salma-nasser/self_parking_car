@@ -1,7 +1,7 @@
 #include "motor_control.h"
-
 #include "low_level_functions.h"
 #include "motor_pwm.h"
+#include <Arduino.h>  
 
 // Define LEDC_TIMER_8_BIT if not already defined
 #ifndef LEDC_TIMER_8_BIT
@@ -21,17 +21,16 @@
 #define RIGHT_PWM_CHANNEL 1
 
 void motor_init() {
-  // Direction pins as outputs
+  // Configure direction pins as outputs using low-level pin control
   pinConfig(LEFT_IN1_PIN, OUTPUT);
   pinConfig(LEFT_IN2_PIN, OUTPUT);
   pinConfig(RIGHT_IN3_PIN, OUTPUT);
   pinConfig(RIGHT_IN4_PIN, OUTPUT);
 
-  // PWM pins init
+  // Initialize PWM for both motors
   motor_pwm_init(LEFT_PWM_PIN, LEFT_PWM_CHANNEL, 5000, LEDC_TIMER_8_BIT);
   motor_pwm_init(RIGHT_PWM_PIN, RIGHT_PWM_CHANNEL, 5000, LEDC_TIMER_8_BIT);
 }
-// to use this function, you need to specify which side you are using and the direction you want to go
 
 void motor_drive(MotorSide side, MotorDirection dir, uint8_t speed_percent) {
   uint8_t in1, in2, pwm_channel;
@@ -46,7 +45,7 @@ void motor_drive(MotorSide side, MotorDirection dir, uint8_t speed_percent) {
     pwm_channel = RIGHT_PWM_CHANNEL;
   }
 
-  // Set direction
+  // Set direction using low-level digital writes
   switch (dir) {
     case MOTOR_FORWARD:
       digitalWriteLowLevel(in1, 1);
@@ -62,19 +61,18 @@ void motor_drive(MotorSide side, MotorDirection dir, uint8_t speed_percent) {
       break;
   }
 
-  // Set speed
+  // Apply PWM speed
   motor_set_speed(pwm_channel, speed_percent);
 }
-// Function to make the car spin in place
+
 void car_spin(SpinDirection spin_dir, uint8_t speed_percent) {
   switch (spin_dir) {
     case SPIN_CLOCKWISE:
-      // Right turn in place
       motor_drive(MOTOR_LEFT, MOTOR_FORWARD, speed_percent);
       motor_drive(MOTOR_RIGHT, MOTOR_REVERSE, speed_percent);
       break;
+
     case SPIN_COUNTER_CLOCKWISE:
-      // Left turn in place
       motor_drive(MOTOR_LEFT, MOTOR_REVERSE, speed_percent);
       motor_drive(MOTOR_RIGHT, MOTOR_FORWARD, speed_percent);
       break;

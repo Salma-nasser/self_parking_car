@@ -1,12 +1,8 @@
-#include "motion_control.h"
+// #include "motion_control.h"
+// #include "motor_control.h"
+#include "Arduino.h"  
 
-#include "esp_log.h"
-#include "esp_timer.h"
-#include "motor_control.h"
-
-#define TAG "MOTION_CONTROL"
-
-// PID controllers for left and right wheels
+// PID controllers for left and right wheels sides
 static PIDController pid_left;
 static PIDController pid_right;
 
@@ -23,7 +19,6 @@ void motion_control_init(void) {
   motor_init();
 
   // Initialize PID controllers with tuning values
-  // These values will need to be adjusted for your specific vehicle
   float kp = 2.0f;  // Proportional gain
   float ki = 0.1f;  // Integral gain
   float kd = 0.5f;  // Derivative gain
@@ -34,7 +29,7 @@ void motion_control_init(void) {
   // Initialize right wheel PID
   pid_init(&pid_right, kp, ki, kd, -MAX_CORRECTION, MAX_CORRECTION, 100.0f);
 
-  ESP_LOGI(TAG, "Motion control initialized");
+  Serial.println("[MOTION_CONTROL] Motion control initialized");
 }
 
 void motion_control_set_mode(MotionMode mode, float target) {
@@ -46,27 +41,23 @@ void motion_control_set_mode(MotionMode mode, float target) {
   pid_reset_integral(&pid_right);
 
   if (mode == MOTION_STOP) {
-    // Stop both motors
     motor_drive(MOTOR_LEFT, MOTOR_STOP, 0);
     motor_drive(MOTOR_RIGHT, MOTOR_STOP, 0);
   }
 
-  // Set PID setpoints based on mode
   switch (mode) {
     case MOTION_FOLLOW_DISTANCE:
       pid_set_setpoint(&pid_left, target);
       pid_set_setpoint(&pid_right, target);
       break;
-
     default:
       break;
   }
 }
 
 void motion_control_update(float front_distance, float back_distance, float left_distance, float right_distance) {
-  uint32_t current_time = esp_timer_get_time() / 1000;  // Get time in ms
+  uint32_t current_time = millis();  
 
-  // Variables for wheel speeds
   int left_speed = BASE_SPEED;
   int right_speed = BASE_SPEED;
   MotorDirection left_dir = MOTOR_STOP;
@@ -92,21 +83,18 @@ void motion_control_update(float front_distance, float back_distance, float left
 
     case MOTION_SPIN_LEFT:
       car_spin(SPIN_COUNTER_CLOCKWISE, BASE_SPEED);
-      return;  // Use dedicated function and return early
+      return;
 
     case MOTION_SPIN_RIGHT:
       car_spin(SPIN_CLOCKWISE, BASE_SPEED);
-      return;  // Use dedicated function and return early
+      return;
 
-    case MOTION_FOLLOW_DISTANCE:
-      // Example: Use front distance for wall following
+    case MOTION_FOLLOW_DISTANCE: {
       float error = front_distance;
 
-      // Compute PID for both wheels
       float left_correction = pid_compute(&pid_left, error, current_time);
       float right_correction = pid_compute(&pid_right, error, current_time);
 
-      // Apply corrections to base speed
       left_speed = BASE_SPEED + (int)left_correction;
       right_speed = BASE_SPEED - (int)right_correction;
 
@@ -119,9 +107,9 @@ void motion_control_update(float front_distance, float back_distance, float left
       left_dir = MOTOR_FORWARD;
       right_dir = MOTOR_FORWARD;
       break;
+    }
   }
 
-  // Apply motor controls
   motor_drive(MOTOR_LEFT, left_dir, left_speed);
   motor_drive(MOTOR_RIGHT, right_dir, right_speed);
 }
