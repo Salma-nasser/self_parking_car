@@ -5,7 +5,7 @@
 
 #define SERVO_PIN 19   // GPIO pin for servo
 #define SERVO_FREQ 50  // 50Hz for typical servos
-#define SERVO_TIMER 0
+#define SERVO_TIMER 1
 #define SERVO_CHANNEL 4
 
 // Servo positions in degrees
