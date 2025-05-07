@@ -1,27 +1,32 @@
-#include "gpio_defs.h"
-#include "low_level_functions.h"
 #include "servo_control.h"
+#include "driver/ledc.h"
+#include <Arduino.h>  // Required for pinMode
 
-// PWM configurations for servo control
-#define SERVO_RESOLUTION 16
-#define SERVO_MIN_DUTY 1638  // 1ms pulse (0 degrees)
-#define SERVO_MAX_DUTY 8192  // 2ms pulse (180 degrees)
+
+#define SERVO_RESOLUTION_BITS LEDC_TIMER_16_BIT
+#define SERVO_TIMER_NUM       (ledc_timer_t)SERVO_TIMER
+#define SERVO_CHANNEL_NUM     (ledc_channel_t)SERVO_CHANNEL
 
 void servo_init(void) {
-  // Configure GPIO as output
-  pinConfig(SERVO_PIN, OUTPUT);
+  // 1) configure the LEDC timer
+  ledc_timer_config_t timer_cfg;
+  timer_cfg.speed_mode      = LEDC_LOW_SPEED_MODE;
+  timer_cfg.duty_resolution = SERVO_RESOLUTION_BITS;
+  timer_cfg.timer_num       = SERVO_TIMER_NUM;
+  timer_cfg.freq_hz         = SERVO_FREQ;
+  timer_cfg.clk_cfg         = LEDC_AUTO_CLK;
+  ledc_timer_config(&timer_cfg);
 
-  // Configure PWM timer directly using registers
-  *((volatile uint32_t*)(DR_REG_GPIO_BASE + 0x554)) = ((SERVO_FREQ << 4) | (SERVO_RESOLUTION << 1));
+  // 2) configure the LEDC channel
+  ledc_channel_config_t ch_cfg;
+  ch_cfg.speed_mode = LEDC_LOW_SPEED_MODE;
+  ch_cfg.channel    = SERVO_CHANNEL_NUM;
+  ch_cfg.timer_sel  = SERVO_TIMER_NUM;
+  ch_cfg.duty       = 0;
+  ch_cfg.hpoint     = 0;
+  ch_cfg.gpio_num   = SERVO_PIN;
+  ledc_channel_config(&ch_cfg);
 
-  // Set initial position to forward
+  // 3) move to neutral
   servo_set_angle(SERVO_FORWARD);
-}
-
-void servo_set_angle(uint8_t angle) {
-  // Convert angle to duty cycle
-  uint32_t duty = SERVO_MIN_DUTY + ((SERVO_MAX_DUTY - SERVO_MIN_DUTY) * angle / 180);
-
-  // Set PWM duty cycle directly using registers
-  *((volatile uint32_t*)(DR_REG_GPIO_BASE + 0x558 + SERVO_CHANNEL * 4)) = duty;
 }
