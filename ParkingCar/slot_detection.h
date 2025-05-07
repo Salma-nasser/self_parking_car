@@ -21,4 +21,16 @@ void start_slot_detection(void);
 bool detect_parking_slot(ParkingSlot* slot);
 bool validate_parking_dimensions(ParkingSlot* slot);
 
+#include <Arduino.h>   // for uint8_t, delay(), etc.
+
+// “Which way has the slot?”  
+typedef enum {
+  NO_SLOT,
+  SLOT_LEFT,
+  SLOT_RIGHT
+} SlotDirection;
+
+// your C++ prototype, matching slot_detection.cpp:
+SlotDirection detect_parking_slot();
+
 #endif
