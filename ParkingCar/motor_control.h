@@ -11,4 +11,5 @@ typedef enum { SPIN_CLOCKWISE, SPIN_COUNTER_CLOCKWISE } SpinDirection;
 void motor_init();
 void motor_drive(MotorSide side, MotorDirection direction, uint8_t speed_percent);
 void car_spin(SpinDirection spin_dir, uint8_t speed_percent);
+bool car_spin_angle(SpinDirection spin_dir, uint8_t speed_percent, int angle_degrees);
 #endif

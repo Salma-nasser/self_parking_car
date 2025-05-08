@@ -1,7 +1,9 @@
 #include "motor_control.h"
+
+#include <Arduino.h>
+
 #include "low_level_functions.h"
 #include "motor_pwm.h"
-#include <Arduino.h>  
 
 // Define LEDC_TIMER_8_BIT if not already defined
 #ifndef LEDC_TIMER_8_BIT
@@ -20,7 +22,7 @@
 #define LEFT_PWM_CHANNEL 0
 #define RIGHT_PWM_CHANNEL 1
 
-#define PWM_FREQ       5000
+#define PWM_FREQ 5000
 #define PWM_RESOLUTION 8  // 0–255 duty range
 
 void motor_init() {
@@ -37,7 +39,6 @@ void motor_init() {
 
 void motor_drive(MotorSide side, MotorDirection dir, uint8_t speed_percent) {
   uint8_t in1, in2, pwm_channel;
-
 
   if (side == MOTOR_LEFT) {
     Serial.print("in left");
@@ -84,4 +85,32 @@ void car_spin(SpinDirection spin_dir, uint8_t speed_percent) {
       motor_drive(MOTOR_RIGHT, MOTOR_FORWARD, speed_percent);
       break;
   }
+}
+// Add this function to motor_control.cpp
+bool car_spin_angle(SpinDirection spin_dir, uint8_t speed_percent, int angle_degrees) {
+  static unsigned long spin_start_time = 0;
+  static bool is_spinning = false;
+
+  // Calculate time needed for rotation based on speed and angle
+  // This will need calibration!
+  unsigned long rotation_time = (angle_degrees * 20);  // 20ms per degree is just an example
+
+  if (!is_spinning) {
+    // Start the spin
+    car_spin(spin_dir, speed_percent);
+    spin_start_time = millis();
+    is_spinning = true;
+    return false;  // Not done spinning
+  }
+
+  // Check if we've spun long enough
+  if (millis() - spin_start_time >= rotation_time) {
+    // Stop spinning
+    motor_drive(MOTOR_LEFT, MOTOR_STOP, 0);
+    motor_drive(MOTOR_RIGHT, MOTOR_STOP, 0);
+    is_spinning = false;
+    return true;  // Done spinning
+  }
+
+  return false;  // Still spinning
 }

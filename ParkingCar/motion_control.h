@@ -26,5 +26,5 @@ void motion_control_set_mode(MotionMode mode, float target_value);
 
 // Get current PID outputs for debugging
 void motion_control_get_pid_output(float *left_output, float *right_output);
-
+MotionMode motion_control_get_mode(void);
 #endif

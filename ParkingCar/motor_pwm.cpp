@@ -1,5 +1,7 @@
 #include "motor_pwm.h"
+
 #include <Arduino.h>
+
 #include "driver/ledc.h"
 #include "esp_err.h"
 
@@ -21,7 +23,7 @@ void motor_pwm_init(uint8_t pwm_pin, uint8_t channel, uint32_t freq, uint8_t res
   ledc_channel.speed_mode = LEDC_LOW_SPEED_MODE;
   ledc_channel.hpoint = 0;
   ledc_channel.timer_sel = LEDC_TIMER_0;
-  ledc_channel.intr_type = LEDC_INTR_DISABLE; // Required in some versions
+  ledc_channel.intr_type = LEDC_INTR_DISABLE;  // Required in some versions
 
   ledc_channel_config(&ledc_channel);
 }
