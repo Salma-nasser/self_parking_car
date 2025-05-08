@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include "servo_control.h"
 #include "ultrasonic.h"
 #include "slot_detection.h"
 
@@ -11,49 +10,76 @@
 #define FRONT_TRIG_PIN   5
 #define FRONT_ECHO_PIN   18
 
-// Thresholds
-#define SLOT_DEPTH_THRESHOLD_CM 30
-#define SLOT_WIDTH_THRESHOLD_CM 35
 
-
-
-// // Utility: read distance from HC-SR04 (in cm)
-// long read_distance_cm(uint8_t trig, uint8_t echo) {
-//   digitalWrite(trig, LOW);
-//   delayMicroseconds(2);
-//   digitalWrite(trig, HIGH);
-//   delayMicroseconds(10);
-//   digitalWrite(trig, LOW);
-//   long duration = pulseIn(echo, HIGH, 25000);  // Timeout 25 ms
-//   return duration * 0.034 / 2;
-// }
+// State variables for slot detection
+static bool leftSlotDetectionActive = false;
+static bool rightSlotDetectionActive = false;
+static unsigned long leftSlotStartTime = 0;
+static unsigned long rightSlotStartTime = 0;
+static float leftSlotLength = 0;
+static float rightSlotLength = 0;
 
 // Main slot detection logic
 SlotDirection detect_parking_slot() {
-  long left_dist = read_distance(LEFT_TRIG_PIN, LEFT_ECHO_PIN);
-  long right_dist = read_distance(RIGHT_TRIG_PIN, RIGHT_ECHO_PIN);
+  float left_dist = read_distance(LEFT_TRIG_PIN, LEFT_ECHO_PIN);
+  float right_dist = read_distance(RIGHT_TRIG_PIN, RIGHT_ECHO_PIN);
+  
+  // Debug output
+  Serial.print("Left distance: ");
+  Serial.print(left_dist);
+  Serial.print(" cm, Right distance: ");
+  Serial.print(right_dist);
+  Serial.println(" cm");
 
-  bool candidate_left = left_dist > SLOT_DEPTH_THRESHOLD_CM;
-  bool candidate_right = right_dist > SLOT_DEPTH_THRESHOLD_CM;
-
-  if (!candidate_left && !candidate_right)
-    return NO_SLOT;
-
-  // Initialize and rotate servo toward the gap direction
-  servo_init();
-
-  if (candidate_left) {
-    servo_set_angle(SERVO_LEFT);   // Rotate to left
-    delay(500);                    // Allow servo to settle
-    long width = read_distance(FRONT_TRIG_PIN, FRONT_ECHO_PIN);
-    return (width > SLOT_WIDTH_THRESHOLD_CM) ? SLOT_LEFT : NO_SLOT;
+  // Detect potential parking slots (open spaces) on left side
+  if (left_dist > SLOT_DEPTH_THRESHOLD_CM) {
+    if (!leftSlotDetectionActive) {
+      leftSlotDetectionActive = true;
+      leftSlotStartTime = millis();
+      Serial.println("Left slot detection started");
+    }
+  } else {
+    // End of slot detection if distance becomes small
+    if (leftSlotDetectionActive) {
+      unsigned long elapsed = millis() - leftSlotStartTime;
+      leftSlotLength = (elapsed / 1000.0) * CAR_SPEED_CMS;  // Convert to seconds then multiply by speed
+      Serial.print("Left slot ended. Length: ");
+      Serial.print(leftSlotLength);
+      Serial.println(" cm");
+      leftSlotDetectionActive = false;
+    }
+  }
+  
+  // Same logic for right side
+  if (right_dist > SLOT_DEPTH_THRESHOLD_CM) {
+    if (!rightSlotDetectionActive) {
+      rightSlotDetectionActive = true;
+      rightSlotStartTime = millis();
+      Serial.println("Right slot detection started");
+    }
+  } else {
+    // End of slot detection if distance becomes small
+    if (rightSlotDetectionActive) {
+      unsigned long elapsed = millis() - rightSlotStartTime;
+      rightSlotLength = (elapsed / 1000.0) * CAR_SPEED_CMS;  // Convert to seconds then multiply by speed
+      Serial.print("Right slot ended. Length: ");
+      Serial.print(rightSlotLength);
+      Serial.println(" cm");
+      rightSlotDetectionActive = false;
+    }
   }
 
-  if (candidate_right) {
-    servo_set_angle(SERVO_RIGHT);  // Rotate to right
-    delay(500);
-    long width = read_distance(FRONT_TRIG_PIN, FRONT_ECHO_PIN);
-    return (width > SLOT_WIDTH_THRESHOLD_CM) ? SLOT_RIGHT : NO_SLOT;
+  // Check if we have valid slots and return the appropriate direction
+  // Priority: left side if both are valid
+  if (leftSlotLength > MIN_SLOT_LENGTH_CM) {
+    float tempLength = leftSlotLength;
+    leftSlotLength = 0;  // Reset for next detection
+    return SLOT_LEFT;
+  } 
+  else if (rightSlotLength > MIN_SLOT_LENGTH_CM) {
+    float tempLength = rightSlotLength;
+    rightSlotLength = 0;  // Reset for next detection
+    return SLOT_RIGHT;
   }
 
   return NO_SLOT;
