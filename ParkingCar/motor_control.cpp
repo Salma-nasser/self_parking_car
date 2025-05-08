@@ -11,14 +11,17 @@
 // Example GPIO pin assignments (adjust for your setup)
 #define LEFT_PWM_PIN 25
 #define LEFT_IN1_PIN 27
-#define LEFT_IN2_PIN 14
+#define LEFT_IN2_PIN 26
 
-#define RIGHT_PWM_PIN 26
-#define RIGHT_IN3_PIN 33
-#define RIGHT_IN4_PIN 32
+#define RIGHT_PWM_PIN 14
+#define RIGHT_IN3_PIN 16
+#define RIGHT_IN4_PIN 17
 
 #define LEFT_PWM_CHANNEL 0
 #define RIGHT_PWM_CHANNEL 1
+
+#define PWM_FREQ       5000
+#define PWM_RESOLUTION 8  // 0–255 duty range
 
 void motor_init() {
   // Configure direction pins as outputs using low-level pin control
@@ -28,32 +31,36 @@ void motor_init() {
   pinConfig(RIGHT_IN4_PIN, OUTPUT);
 
   // Initialize PWM for both motors
-  motor_pwm_init(LEFT_PWM_PIN, LEFT_PWM_CHANNEL, 5000, LEDC_TIMER_8_BIT);
-  motor_pwm_init(RIGHT_PWM_PIN, RIGHT_PWM_CHANNEL, 5000, LEDC_TIMER_8_BIT);
+  motor_pwm_init(LEFT_PWM_PIN, LEFT_PWM_CHANNEL, PWM_FREQ, PWM_RESOLUTION);
+  motor_pwm_init(RIGHT_PWM_PIN, RIGHT_PWM_CHANNEL, PWM_FREQ, PWM_RESOLUTION);
 }
 
 void motor_drive(MotorSide side, MotorDirection dir, uint8_t speed_percent) {
   uint8_t in1, in2, pwm_channel;
 
+
   if (side == MOTOR_LEFT) {
+    Serial.print("in left");
     in1 = LEFT_IN1_PIN;
     in2 = LEFT_IN2_PIN;
     pwm_channel = LEFT_PWM_CHANNEL;
   } else {
+    Serial.print("in right");
     in1 = RIGHT_IN3_PIN;
     in2 = RIGHT_IN4_PIN;
     pwm_channel = RIGHT_PWM_CHANNEL;
   }
 
-  // Set direction using low-level digital writes
+  // Set direction
   switch (dir) {
     case MOTOR_FORWARD:
       digitalWriteLowLevel(in1, 1);
       digitalWriteLowLevel(in2, 0);
+      Serial.print("moving forward");
       break;
     case MOTOR_REVERSE:
-      digitalWriteLowLevel(in1, 0);
-      digitalWriteLowLevel(in2, 1);
+      digitalWriteLowLevel(in1, 1);
+      digitalWriteLowLevel(in2, 0);
       break;
     case MOTOR_STOP:
       digitalWriteLowLevel(in1, 0);
